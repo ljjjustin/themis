@@ -1,0 +1,60 @@
+################################################################
+# Global configuration
+################################################################
+
+# Enable debug mode
+#
+# Optional
+# Default: false
+#
+# debug = true
+
+# Log level
+#
+# Optional
+# Default: "ERROR"
+#
+# logLevel = "ERROR"
+
+# Themis logs
+#
+# Sets the filepath for the themis log.
+# If not specified, stdout will be used.
+#
+# Optional
+# Default: os.Stdout
+#
+# logFile = "log/themis.log"
+
+# Log format is either "json" or "common".
+#
+# Optional
+# Default: "common"
+#
+# logFormat = "common"
+
+################################################################
+# Storage configuration
+################################################################
+# Specify Storage URLs
+[storage]
+
+# Storage Driver
+#
+# Specify Storage driver and URLs so that we can persitent
+# the status of all kinds of resources.
+#
+# All supported drivers include: mysql, etcd.
+# Required
+# Default: mysql
+#
+# driver = "mysql"
+# connection = "user:password@localhost/themis?charset=utf-8"
+
+[monitors.manage]
+type = "serf"
+address = "127.0.0.1:7373"
+
+[monitors.storage]
+type = "serf"
+address = "127.0.0.1:7373"
