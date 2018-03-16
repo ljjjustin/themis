@@ -1,22 +1,24 @@
 package storage
 
 type Host struct {
-	Id   uint32 `xorm:"INT pk autoincr"`
-	Name string `xorm:"UNIQUE notnull"`
-	UUID string `xorm:"uuid UNIQUE notnull"`
+	Id     int    `json:"id" xorm:"pk autoincr"`
+	Name   string `json:"name" binding:"required" xorm:"unique notnull"`
+	Status string `json:"status"`
 }
 
 type HostState struct {
-	Tag         string `xorm:"notnull"`
-	Hostname    string `xorm:"notnull"`
-	FailedTimes int32  `xorm:"default 0"`
+	Id          int    `json:"id" xorm:"pk autoincr"`
+	HostId      int    `json:"host_id"`
+	Tag         string `json:"tag" binding:"required" xorm:"varchar(64) notnull"`
+	FailedTimes int    `json:"failed_times" xorm:"default 0"`
 }
 
-type Fencer struct {
-	Id       uint32 `xorm:"INT pk autoincr"`
-	Type     string `xorm:"VARCHAR(16) notnull"`
-	Host     string `xorm:"VARCHAR(64) notnull"`
-	Port     int    `xorm:"INT notnull default 623"`
-	Username string `xorm:"VARCHAR(32) notnull"`
-	Password string `xorm:"VARCHAR(64) notnull"`
+type HostFencer struct {
+	Id       int    `json:"id" xorm:"pk autoincr"`
+	HostId   int    `json:"host_id"`
+	Type     string `json:"type" xorm:"VARCHAR(16) notnull"`
+	Host     string `json:"host" binding:"required" xorm:"varchar(64) notnull"`
+	Port     int    `json:"port" xorm:"default 623"`
+	Username string `json:"username" binding:"required" xorm:"varchar(64) notnull"`
+	Password string `json:"password" binding:"required" xorm:"varchar(64) notnull"`
 }
