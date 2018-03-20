@@ -1,5 +1,23 @@
 package storage
 
+import "time"
+
+func init() {
+	allTables = append(allTables,
+		new(ElectionRecord),
+		new(Host),
+		new(HostState),
+		new(HostFencer),
+	)
+}
+
+type ElectionRecord struct {
+	Id           uint32    `xorm:"INT notnull autoincr pk"`
+	ElectionName string    `xorm:"VARCHAR(32) notnull default '' unique"`
+	LeaderName   string    `xorm:"VARCHAR(32) notnull default ''"`
+	LastUpdate   time.Time `xorm:"TIMESTAMP notnull default CURRENT_TIMESTAMP"`
+}
+
 type Host struct {
 	Id     int    `json:"id" xorm:"pk autoincr"`
 	Name   string `json:"name" binding:"required" xorm:"unique notnull"`

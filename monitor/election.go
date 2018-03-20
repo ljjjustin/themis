@@ -17,13 +17,6 @@ type Election struct {
 	Engine     *xorm.Engine
 }
 
-type ElectionRecord struct {
-	Id           uint32    `xorm:"INT notnull autoincr pk"`
-	ElectionName string    `xorm:"VARCHAR(32) notnull default '' unique"`
-	LeaderName   string    `xorm:"VARCHAR(32) notnull default ''"`
-	LastUpdate   time.Time `xorm:"TIMESTAMP notnull default CURRENT_TIMESTAMP"`
-}
-
 func NewElection(name string, engine *xorm.Engine) *Election {
 	return &Election{LeaderName: name, Engine: engine}
 }

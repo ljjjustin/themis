@@ -2,7 +2,8 @@ package cmd
 
 import (
 	"github.com/ljjjustin/themis/config"
-	"github.com/ljjjustin/themis/monitor"
+	"github.com/ljjjustin/themis/storage"
+
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +29,5 @@ func dbsyncMain(cmd *cobra.Command, args []string) {
 	// init log configurations
 	themisCfg.SetupLogging()
 
-	monitor := monitor.NewThemisMonitor(themisCfg)
-	monitor.DbSync()
+	storage.DbSync(&themisCfg.Storage)
 }

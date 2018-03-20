@@ -3,13 +3,12 @@ package monitor
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/coreos/pkg/capnslog"
-	"github.com/go-xorm/xorm"
 	"github.com/ljjjustin/themis/config"
+	"github.com/ljjjustin/themis/storage"
 )
 
 var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "monitor")
@@ -22,33 +21,13 @@ func NewThemisMonitor(cfg *config.ThemisConfig) *ThemisMonitor {
 	return &ThemisMonitor{cfg: cfg}
 }
 
-func (m *ThemisMonitor) DbSync() {
-	sc := m.cfg.Storage
-	engine, err := xorm.NewEngine("mysql", sc.Connection)
-	if err != nil {
-		plog.Fatal(err)
-	}
-	defer engine.Close()
-
-	err = engine.Sync2(new(ElectionRecord))
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
 func (m *ThemisMonitor) Start() {
-	sc := m.cfg.Storage
-	engine, err := xorm.NewEngine("mysql", sc.Connection)
-	if err != nil {
-		plog.Fatal(err)
-	}
-	defer engine.Close()
-
 	leader_name, err := os.Hostname()
 	if err != nil {
 		plog.Fatal(err)
 	}
 
+	engine := storage.Engine(&m.cfg.Storage)
 	election := NewElection(leader_name, engine)
 	ctx, cancel := context.WithCancel(context.Background())
 

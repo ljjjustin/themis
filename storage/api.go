@@ -1,31 +1,41 @@
 package storage
 
 import (
-	"log"
-
+	"github.com/coreos/pkg/capnslog"
 	"github.com/go-xorm/xorm"
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/ljjjustin/themis/config"
 )
 
-const (
-	dbname = "apitest.db"
-)
+var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "storage")
 
 var (
-	engine *xorm.Engine
+	engine    *xorm.Engine
+	allTables []interface{}
 )
 
-func init() {
+func Engine(cfg *config.StorageConfig) *xorm.Engine {
 	var err error
-	// create database connection
-	engine, err = xorm.NewEngine("sqlite3", dbname)
-	if err != nil {
-		log.Fatal(err)
+
+	if engine == nil {
+		engine, err = xorm.NewEngine("mysql", cfg.Connection)
+		if err != nil {
+			plog.Fatal(err)
+		}
 	}
-	engine.ShowSQL(true)
+	return engine
+}
+
+func DbSync(cfg *config.StorageConfig) {
+
+	engine := Engine(cfg)
 
 	// register and update database models
-	engine.Sync2(new(Host), new(HostState), new(HostFencer))
+	err := engine.Sync2(allTables...)
+	if err != nil {
+		plog.Fatal(err)
+	}
 }
 
 func HostInsert(host *Host) error {
