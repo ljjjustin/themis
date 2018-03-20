@@ -1,6 +1,11 @@
 package monitor
 
-import "github.com/coreos/pkg/capnslog"
+import (
+	"github.com/coreos/pkg/capnslog"
+	"github.com/ljjjustin/themis/storage"
+)
+
+var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "policy")
 
 const (
 	flagManagement uint = 1 << 2
@@ -30,4 +35,17 @@ var (
 	}
 )
 
-var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "policy")
+func isDown(state *storage.HostState) {
+	// FIXME: judge if one network is down.
+	return true
+}
+
+func getDecision(states []*storage.HostState) bool {
+	var decision uint = 0
+	for _, s := range states {
+		if isDown(s) {
+			decision |= flagTagMap[s.Tag]
+		}
+	}
+	return decisionMatrix[decision]
+}
