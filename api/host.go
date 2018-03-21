@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ljjjustin/themis/storage"
+	"github.com/ljjjustin/themis/database"
 )
 
 func init() {
@@ -16,10 +16,10 @@ func init() {
 }
 
 func CreateHost(c *gin.Context) {
-	var host storage.Host
+	var host database.Host
 
 	ParseBody(c, &host)
-	if err := storage.HostInsert(&host); err != nil {
+	if err := database.HostInsert(&host); err != nil {
 		AbortWithError(http.StatusNotAcceptable, err)
 	} else {
 		c.JSON(http.StatusOK, host)
@@ -29,7 +29,7 @@ func CreateHost(c *gin.Context) {
 func GetOneHost(c *gin.Context) {
 	id := GetId(c, "id")
 
-	if host, err := storage.HostGetById(id); err != nil {
+	if host, err := database.HostGetById(id); err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else if host == nil {
 		AbortWithError(http.StatusNotFound, ErrNotFound)
@@ -39,7 +39,7 @@ func GetOneHost(c *gin.Context) {
 }
 
 func GetAllHosts(c *gin.Context) {
-	hosts, err := storage.HostGetAll()
+	hosts, err := database.HostGetAll()
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	}
@@ -49,7 +49,7 @@ func GetAllHosts(c *gin.Context) {
 func UpdateHost(c *gin.Context) {
 	id := GetId(c, "id")
 
-	host, err := storage.HostGetById(id)
+	host, err := database.HostGetById(id)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else if host == nil {
@@ -57,7 +57,7 @@ func UpdateHost(c *gin.Context) {
 	}
 
 	ParseBody(c, host)
-	if err := storage.HostUpdate(id, host); err != nil {
+	if err := database.HostUpdate(id, host); err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.JSON(http.StatusOK, host)
@@ -67,7 +67,7 @@ func UpdateHost(c *gin.Context) {
 func DeleteHost(c *gin.Context) {
 	id := GetId(c, "id")
 
-	if err := storage.HostDelete(id); err != nil {
+	if err := database.HostDelete(id); err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.Data(204, "application/json", make([]byte, 0))

@@ -36,7 +36,7 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(
 		NewMonitorCommand(),
-		NewDbsyncCommand(),
+		NewAgentCommand(),
 	)
 }
 

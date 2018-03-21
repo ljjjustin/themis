@@ -16,16 +16,21 @@ type ThemisConfig struct {
 	LogLevel string
 	LogFile  string
 
-	Storage  StorageConfig
+	// API configurations
+	BindHost string
+	BindPort int
+
+	Database DatabaseConfig
 	Monitors map[string]MonitorConfig
 }
 
-type StorageConfig struct {
-	// Driver name
-	Driver string
-
-	// Connect URLs
-	Connection string
+type DatabaseConfig struct {
+	Driver   string
+	Host     string
+	Username string
+	Password string
+	Name     string
+	Path     string // for sqlite3
 }
 
 type MonitorConfig struct {
@@ -52,16 +57,16 @@ func NewDefaultConfig() *ThemisConfig {
 		Debug:    false,
 		LogLevel: "INFO",
 		LogFile:  "themis.log",
-		Storage: StorageConfig{
-			Driver:     "mysql",
-			Connection: "mysql://localhost/themis?charset=utf8",
+		BindHost: "localhost",
+		BindPort: 7878,
+		Database: DatabaseConfig{
+			Driver:   "sqlite3",
+			Path:     "themis.db",
+			Host:     "",
+			Username: "",
+			Password: "",
 		},
-		Monitors: map[string]MonitorConfig{
-			"ceph": MonitorConfig{
-				Type:    "serf",
-				Address: "http://127.0.0.1:7373",
-			},
-		},
+		Monitors: map[string]MonitorConfig{},
 	}
 }
 

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ljjjustin/themis/storage"
+	"github.com/ljjjustin/themis/database"
 )
 
 func GetId(c *gin.Context, key string) int {
@@ -30,10 +30,10 @@ func ParseBody(c *gin.Context, obj interface{}) {
 	}
 }
 
-func GetHost(c *gin.Context) *storage.Host {
+func GetHost(c *gin.Context) *database.Host {
 	hostId := GetId(c, "id")
 
-	host, err := storage.HostGetById(hostId)
+	host, err := database.HostGetById(hostId)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else if host == nil {

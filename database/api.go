@@ -1,6 +1,8 @@
-package storage
+package database
 
 import (
+	"fmt"
+
 	"github.com/coreos/pkg/capnslog"
 	"github.com/go-xorm/xorm"
 	_ "github.com/mattn/go-sqlite3"
@@ -8,34 +10,43 @@ import (
 	"github.com/ljjjustin/themis/config"
 )
 
-var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "storage")
+var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "database")
 
 var (
 	engine    *xorm.Engine
 	allTables []interface{}
 )
 
-func Engine(cfg *config.StorageConfig) *xorm.Engine {
+func Engine(cfg *config.DatabaseConfig) *xorm.Engine {
 	var err error
 
 	if engine == nil {
-		engine, err = xorm.NewEngine("mysql", cfg.Connection)
+		url := ""
+		switch cfg.Driver {
+		case "mysql":
+			url = fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=true",
+				cfg.Username, cfg.Password, cfg.Host, cfg.Name)
+		case "sqlite3":
+			url = cfg.Path
+		default:
+			plog.Fatal("unsupported database driver, check your configurations")
+		}
+		engine, err = xorm.NewEngine(cfg.Driver, url)
+		if err != nil {
+			plog.Fatal(err)
+		}
+		// fast fail if if we can not connect to database
+		err = engine.Ping()
+		if err != nil {
+			plog.Fatal(err)
+		}
+		// register and update database models
+		err := engine.Sync2(allTables...)
 		if err != nil {
 			plog.Fatal(err)
 		}
 	}
 	return engine
-}
-
-func DbSync(cfg *config.StorageConfig) {
-
-	engine := Engine(cfg)
-
-	// register and update database models
-	err := engine.Sync2(allTables...)
-	if err != nil {
-		plog.Fatal(err)
-	}
 }
 
 func HostInsert(host *Host) error {

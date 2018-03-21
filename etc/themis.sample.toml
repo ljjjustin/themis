@@ -1,60 +1,98 @@
 ################################################################
 # Global configuration
 ################################################################
-
+#
 # Enable debug mode
 #
-# Optional
-# Default: false
+# Optional, Default: false
 #
-# debug = true
+# debug = false
 
+################################################################
+# Log configurations
+################################################################
+#
 # Log level
 #
-# Optional
-# Default: "ERROR"
+# Optional, Default: "ERROR"
 #
-# logLevel = "ERROR"
+# logLevel = "INFO"
 
-# Themis logs
+# Log file
 #
-# Sets the filepath for the themis log.
-# If not specified, stdout will be used.
+# Specify path to log file.
 #
-# Optional
-# Default: os.Stdout
+# Optional Default: os.Stdout
 #
-# logFile = "log/themis.log"
-
-# Log format is either "json" or "common".
-#
-# Optional
-# Default: "common"
-#
-# logFormat = "common"
+# logFile = "themis.log"
 
 ################################################################
-# Storage configuration
+# REST API configurations
 ################################################################
-# Specify Storage URLs
-[storage]
-
-# Storage Driver
 #
-# Specify Storage driver and URLs so that we can persitent
+# Bind Host
+#
+# Specify listen address.
+#
+# Optional, Default: localhost
+#
+# bindHost = "localhost"
+
+# Bind Port
+#
+# Specify listen port.
+#
+# Optional, Default: 7878
+#
+# bindPort = 7878
+
+################################################################
+# Database configuration
+################################################################
+[database]
+
+# Database Driver
+#
+# Specify Database driver and URLs so that we can persitent
 # the status of all kinds of resources.
 #
-# All supported drivers include: mysql, etcd.
-# Required
-# Default: mysql
+# All supported drivers include: mysql, postgres, sqlite3, mssql.
+#
+# Required, Default: mysql
 #
 # driver = "mysql"
 # connection = "user:password@localhost/themis?charset=utf-8"
 
-[monitors.manage]
-type = "serf"
-address = "127.0.0.1:7373"
+################################################################
+# Monitoring configurations
+################################################################
+#
+# We can  collect events from multiple source. each source has following format:
+#
+# [monitors.xxx] xxx represent is the tag for monitor; tag should be UNIQUE.
+# type = xxx     xxx represent means source type, now just one type 'serf' is available.
+# address = xxx  xxx specify host:port from where we can get events.
+#
+# from openstack environment
+# [monitors.manage]
+# type = "serf"
+# address = "192.168.1.3:7373"
+#
+# [monitors.storage]
+# type = "serf"
+# address = "192.168.2.3:7373"
+#
+# [monitors.network]
+# type = "serf"
+# address = "192.168.3.3:7373"
 
-[monitors.storage]
-type = "serf"
-address = "127.0.0.1:7373"
+################################################################
+# Fence configurations
+################################################################
+[fence]
+
+# Global control should we perform fence operations when we see a host became down.
+#
+# Optional, Default: false, which means we will take action if we see a host became down.
+#
+# disableFenceOps = false

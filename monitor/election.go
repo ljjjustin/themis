@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -23,40 +24,54 @@ func NewElection(name string, engine *xorm.Engine) *Election {
 
 // Campaign puts a value as eligible for the election.
 // It blocks until it is elected, an error occurs, or the context is cancelled.
-func (e *Election) Campaign(ctx context.Context) error {
+func (e *Election) Campaign(ctx context.Context) <-chan error {
+	quit := make(chan error, 1)
 
 	for {
 		succ, err := campaign(e.Engine, e.LeaderName)
 		if err != nil {
-			return err
-		}
-
-		if succ {
-			// update record every 5 seconds if we became leader.
-			go func(ctx context.Context, engine *xorm.Engine, leader string) error {
-				for {
-					_, err := campaign(engine, leader)
-					if err != nil {
-						return err
-					}
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(5 * time.Second):
-						continue
-					}
-				}
-			}(ctx, e.Engine, e.LeaderName)
-			return nil
+			plog.Debug(err)
+			quit <- err
+			break
+		} else if succ {
+			// update authorization every 5 seconds.
+			plog.Debugf("%s campaign successed.", e.LeaderName)
+			go keepClaim(ctx, e.Engine, e.LeaderName, quit)
+			break
 		} else {
 			// wait 20 seconds and campaign again
+			plog.Debugf("%s campaign failed, sleep 20 seconds and try again.", e.LeaderName)
 			time.Sleep(20 * time.Second)
+			continue
+		}
+	}
+	return quit
+}
+
+func keepClaim(ctx context.Context, engine *xorm.Engine, leader string, quit chan error) {
+	for {
+		select {
+		case <-ctx.Done():
+			plog.Info(ctx.Err())
+			return
+		case <-time.After(5 * time.Second):
+		}
+		plog.Debugf("%s updating authorization.", leader)
+		succ, err := campaign(engine, leader)
+		if err != nil {
+			plog.Debug(err)
+			quit <- err
+			return
+		} else if !succ {
+			plog.Debugf("%s campaign failed, we are not leader now.", leader)
+			quit <- errors.New("Leader changed.")
+			return
 		}
 	}
 }
 
 // IsLeader query engine if we are the Leader.
-func (e *Election) IsLeader(ctx context.Context) (bool, error) {
+func (e *Election) IsLeader() (bool, error) {
 
 	sql := `SELECT COUNT(*) as is_leader FROM election_record where election_name=? and leader_name=?`
 

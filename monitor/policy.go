@@ -1,11 +1,8 @@
 package monitor
 
 import (
-	"github.com/coreos/pkg/capnslog"
-	"github.com/ljjjustin/themis/storage"
+	"github.com/ljjjustin/themis/database"
 )
-
-var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "policy")
 
 const (
 	flagManagement uint = 1 << 2
@@ -35,12 +32,19 @@ var (
 	}
 )
 
-func isDown(state *storage.HostState) {
+type PolicyEngine struct {
+}
+
+func NewPolicyEngine() *PolicyEngine {
+	return &PolicyEngine{}
+}
+
+func isDown(state *database.HostState) bool {
 	// FIXME: judge if one network is down.
 	return true
 }
 
-func getDecision(states []*storage.HostState) bool {
+func getDecision(states []*database.HostState) bool {
 	var decision uint = 0
 	for _, s := range states {
 		if isDown(s) {

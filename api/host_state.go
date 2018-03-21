@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ljjjustin/themis/storage"
+	"github.com/ljjjustin/themis/database"
 )
 
 func init() {
@@ -15,13 +15,13 @@ func init() {
 }
 
 func CreateState(c *gin.Context) {
-	var state storage.HostState
+	var state database.HostState
 	ParseBody(c, &state)
 
 	host := GetHost(c)
 	state.HostId = host.Id
 
-	states, err := storage.StateGetAll(host.Id)
+	states, err := database.StateGetAll(host.Id)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	}
@@ -31,7 +31,7 @@ func CreateState(c *gin.Context) {
 		}
 	}
 
-	if err := storage.StateInsert(&state); err != nil {
+	if err := database.StateInsert(&state); err != nil {
 		AbortWithError(http.StatusNotAcceptable, err)
 	} else {
 		c.JSON(http.StatusOK, state)
@@ -41,13 +41,13 @@ func CreateState(c *gin.Context) {
 func GetHostStates(c *gin.Context) {
 	host := GetHost(c)
 
-	states, err := storage.StateGetAll(host.Id)
+	states, err := database.StateGetAll(host.Id)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	}
 
 	if tag := c.Query("tag"); len(tag) > 0 {
-		filtered := make([]*storage.HostState, 0)
+		filtered := make([]*database.HostState, 0)
 		for _, s := range states {
 			if s.Tag == tag {
 				filtered = append(filtered, s)
@@ -62,7 +62,7 @@ func GetHostStates(c *gin.Context) {
 func UpdateState(c *gin.Context) {
 	stateId := GetId(c, "sid")
 
-	state, err := storage.StateGetById(stateId)
+	state, err := database.StateGetById(stateId)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else if state == nil {
@@ -70,7 +70,7 @@ func UpdateState(c *gin.Context) {
 	}
 
 	ParseBody(c, state)
-	err = storage.StateUpdate(stateId, state)
+	err = database.StateUpdate(stateId, state)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {
@@ -79,7 +79,7 @@ func UpdateState(c *gin.Context) {
 }
 
 func DeleteState(c *gin.Context) {
-	err := storage.StateDelete(GetId(c, "sid"))
+	err := database.StateDelete(GetId(c, "sid"))
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {

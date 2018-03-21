@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ljjjustin/themis/storage"
+	"github.com/ljjjustin/themis/database"
 )
 
 func init() {
@@ -15,7 +15,7 @@ func init() {
 }
 
 func CreateFencer(c *gin.Context) {
-	var fencer storage.HostFencer
+	var fencer database.HostFencer
 	ParseBody(c, &fencer)
 
 	host := GetHost(c)
@@ -26,7 +26,7 @@ func CreateFencer(c *gin.Context) {
 
 	// FIXME: validate before insert into database.
 
-	if err := storage.FencerInsert(&fencer); err != nil {
+	if err := database.FencerInsert(&fencer); err != nil {
 		AbortWithError(http.StatusNotAcceptable, err)
 	} else {
 		c.JSON(http.StatusOK, fencer)
@@ -36,7 +36,7 @@ func CreateFencer(c *gin.Context) {
 func GetHostFencers(c *gin.Context) {
 	host := GetHost(c)
 
-	fencers, err := storage.FencerGetAll(host.Id)
+	fencers, err := database.FencerGetAll(host.Id)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	}
@@ -47,7 +47,7 @@ func GetHostFencers(c *gin.Context) {
 func UpdateFencer(c *gin.Context) {
 	fencerId := GetId(c, "fid")
 
-	fencer, err := storage.FencerGetById(fencerId)
+	fencer, err := database.FencerGetById(fencerId)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else if fencer == nil {
@@ -55,7 +55,7 @@ func UpdateFencer(c *gin.Context) {
 	}
 
 	ParseBody(c, fencer)
-	err = storage.FencerUpdate(fencerId, fencer)
+	err = database.FencerUpdate(fencerId, fencer)
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {
@@ -64,7 +64,7 @@ func UpdateFencer(c *gin.Context) {
 }
 
 func DeleteFencer(c *gin.Context) {
-	err := storage.FencerDelete(GetId(c, "fid"))
+	err := database.FencerDelete(GetId(c, "fid"))
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {
