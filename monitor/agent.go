@@ -173,7 +173,8 @@ func keepRunning(ctx context.Context, tag, address string) {
 				plog.Warning("Can't start serf agent: ", err)
 				break
 			}
-			pid = cmd.Process.Pid
+			time.Sleep(time.Second)
+			pid = getPidByAddress(address)
 		}
 		plog.Infof("serf agent pid is: %d", pid)
 		go monitorPid(pid, quit)
@@ -194,7 +195,7 @@ func monitorPid(pid int, quit chan<- struct{}) {
 		if err != nil {
 			break
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	quit <- struct{}{}
 }
