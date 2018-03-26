@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +22,7 @@ var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "monitor")
 type ThemisMonitor struct {
 	config          *config.ThemisConfig
 	context         context.Context
+	cancelFunc      context.CancelFunc
 	election        *Election
 	policyEngine    *PolicyEngine
 	eventCollectors []*EventCollector
@@ -41,6 +43,7 @@ func NewThemisMonitor(config *config.ThemisConfig) *ThemisMonitor {
 
 	var collectors []*EventCollector
 	for tag, monitor := range config.Monitors {
+		checkBindAddress(strings.Split(monitor.Address, ":")[0])
 		collector := NewEventCollector(tag, &monitor)
 		collectors = append(collectors, collector)
 	}
@@ -60,22 +63,19 @@ func (m *ThemisMonitor) Start() {
 
 	// start API server
 	plog.Info("Starting API server.")
-	apiCtx, apiCancel := context.WithCancel(m.context)
+	apiCtx, _ := context.WithCancel(m.context)
 	go startAPIServer(apiCtx, m)
 
 	// start monitoring server
 	plog.Info("Starting monitoring routines.")
-	monitorCtx, monitorCancel := context.WithCancel(m.context)
+	monitorCtx, _ := context.WithCancel(m.context)
 	go startMonitoring(monitorCtx, m)
 
 	// handler os signals
 	select {
 	case s := <-signals:
 		plog.Infof("Received system signal %s", s)
-		// stop api server
-		apiCancel()
-		// stop monitoring routines
-		monitorCancel()
+		m.Stop()
 	}
 }
 
@@ -105,29 +105,27 @@ func startAPIServer(ctx context.Context, m *ThemisMonitor) {
 }
 
 func startMonitoring(ctx context.Context, m *ThemisMonitor) {
-	monitorCtx, monitorCancel := context.WithCancel(ctx)
+	leaderName := m.election.LeaderName
 
 	for {
-		leaderName := m.election.LeaderName
+	StartElection:
+		monitorCtx, monitorCancel := context.WithCancel(ctx)
 		plog.Infof("%s start campaign leader.", leaderName)
 		// wait until we become a leader or a error occour
-		electionCtx, electionCancel := context.WithCancel(monitorCtx)
+		electionCtx, _ := context.WithCancel(monitorCtx)
 		electionErr := m.election.Campaign(electionCtx)
 		select {
 		case err := <-electionErr:
 			plog.Warning(err)
-			electionCancel()
-			break
+			monitorCancel()
+			goto StartElection
 		default:
 			plog.Infof("%s became leader.", leaderName)
 		}
 
 		// start policy engine who will handle events and make decision
-		//policyEngineErr := startPolicyEngine(ctx, m)
-
-		// event collectors who will collect events and deliver to policy engine
-		collectorCtx, collectorCancel := context.WithCancel(monitorCtx)
-		collectorErr := startEventCollectors(collectorCtx, m)
+		policyEngineCtx, _ := context.WithCancel(monitorCtx)
+		policyEngineErr := startPolicyEngine(policyEngineCtx, m)
 
 		for {
 			select {
@@ -135,13 +133,13 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 				// perform monitoring if we are still leader
 				plog.Info(err)
 				monitorCancel()
-				break
-			case err := <-collectorErr:
+				goto StartElection
+			case err := <-policyEngineErr:
 				plog.Info(err)
-				collectorCancel()
-				break
+				monitorCancel()
+				goto StartElection
 			case <-ctx.Done():
-				// stop policy engine & event collectors
+				// stop all monitoring routines
 				monitorCancel()
 				return
 			}
@@ -149,10 +147,10 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 	}
 }
 
-func startEventCollectors(ctx context.Context, m *ThemisMonitor) <-chan error {
+func startPolicyEngine(ctx context.Context, m *ThemisMonitor) <-chan error {
 	quit := make(chan error, 1)
+	plog.Info("Starting policy engine.")
 
-	plog.Info("Starting event collectors.")
 	go func() {
 		for {
 			for _, collector := range m.eventCollectors {
@@ -166,15 +164,16 @@ func startEventCollectors(ctx context.Context, m *ThemisMonitor) <-chan error {
 				if err != nil {
 					quit <- errors.New(err.Error())
 				}
-				for _, event := range events {
-					plog.Infof("Host %s with tag %s became Failed.",
-						event.Hostname, event.NetworkTag)
+				if events != nil {
+					go m.policyEngine.HandleEvents(events)
 				}
 			}
 		}
 	}()
+
 	return quit
 }
 
 func (m *ThemisMonitor) Stop() {
+	m.cancelFunc()
 }

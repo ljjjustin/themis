@@ -4,12 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"net"
 	"os"
 	"os/exec"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -18,92 +15,22 @@ import (
 )
 
 type ThemisAgent struct {
-	config  *config.ThemisConfig
-	context context.Context
+	config     *config.ThemisConfig
+	context    context.Context
+	cancelFunc context.CancelFunc
 }
 
 func NewThemisAgent(config *config.ThemisConfig) *ThemisAgent {
 	// fast fail if we can not connect to all collectors.
 	for _, monitor := range config.Monitors {
-		ip := strings.Split(monitor.Address, ":")[0]
-		checkBindAddress(ip)
+		checkBindAddress(strings.Split(monitor.Address, ":")[0])
 	}
-	context := context.Background()
+	context, cancel := context.WithCancel(context.Background())
 
-	return &ThemisAgent{config: config, context: context}
-}
-
-func getInterfaceAddrs() map[string][]string {
-
-	ifaceAddrsMap := map[string][]string{}
-
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, iface := range interfaces {
-		addrs, err := iface.Addrs()
-		if err != nil {
-			log.Fatal(err)
-		}
-		ips := []string{}
-		for _, addr := range addrs {
-			ip, _, err := net.ParseCIDR(addr.String())
-			if err != nil {
-				log.Fatal(err)
-			}
-			if ip.To4() != nil {
-				ips = append(ips, ip.String())
-			}
-		}
-		if len(ips) > 0 {
-			ifaceAddrsMap[iface.Name] = ips
-		}
-	}
-	return ifaceAddrsMap
-}
-
-func checkBindAddress(ip string) {
-	ifaceAddrs := getInterfaceAddrs()
-
-	for _, addrs := range ifaceAddrs {
-		for _, addr := range addrs {
-			if ip == addr {
-				return
-			}
-		}
-	}
-	plog.Fatalf("no interface with ip %s", ip)
-}
-
-func getInterfaceByIP(ip string) string {
-	ifaceAddrs := getInterfaceAddrs()
-
-	for iface, addrs := range ifaceAddrs {
-		for _, addr := range addrs {
-			if ip == addr {
-				return iface
-			}
-		}
-	}
-	plog.Fatalf("no interface with ip %s", ip)
-	return ""
-}
-
-func getPidByAddress(address string) int {
-	cmd := fmt.Sprintf("netstat -ntlp | grep -w '%s' | awk '{print $NF}'", address)
-	out, err := exec.Command("bash", "-c", cmd).Output()
-	if err != nil || len(string(out)) < 1 {
-		return 0
-	}
-	stdout := string(out)
-	result := strings.Split(stdout, "/")[0]
-	pid, err := strconv.Atoi(result)
-	if err != nil {
-		plog.Fatal("Get pid failed: %s", err.Error())
-		return 0
-	} else {
-		return pid
+	return &ThemisAgent{
+		config:     config,
+		context:    context,
+		cancelFunc: cancel,
 	}
 }
 
@@ -134,7 +61,7 @@ func (agent *ThemisAgent) Start() {
 	signals := make(chan os.Signal)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	serfCtx, serfCancel := context.WithCancel(agent.context)
+	serfCtx, _ := context.WithCancel(agent.context)
 	for tag, monitor := range agent.config.Monitors {
 		go keepRunning(serfCtx, tag, monitor.Address)
 	}
@@ -144,7 +71,7 @@ func (agent *ThemisAgent) Start() {
 	case s := <-signals:
 		plog.Infof("Received system signal %s", s)
 		// stop monitoring routines
-		serfCancel()
+		agent.Stop()
 	}
 }
 
@@ -201,4 +128,5 @@ func monitorPid(pid int, quit chan<- struct{}) {
 }
 
 func (agent *ThemisAgent) Stop() {
+	agent.cancelFunc()
 }

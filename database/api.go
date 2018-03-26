@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/coreos/pkg/capnslog"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/go-xorm/xorm"
 	_ "github.com/mattn/go-sqlite3"
 
@@ -79,6 +80,19 @@ func HostGetById(id int) (*Host, error) {
 	}
 }
 
+func HostGetByName(hostname string) (*Host, error) {
+	var host = Host{Name: hostname}
+
+	exist, err := engine.Get(&host)
+	if err != nil {
+		return nil, err
+	} else if exist {
+		return &host, nil
+	} else {
+		return nil, nil
+	}
+}
+
 func HostUpdate(id int, host *Host) error {
 	_, err := engine.ID(id).Update(host)
 	return err
@@ -112,6 +126,23 @@ func StateGetById(id int) (*HostState, error) {
 	} else {
 		return nil, nil
 	}
+}
+
+func StateGetByTag(hostId int, tag string) (*HostState, error) {
+	states := make([]*HostState, 0)
+
+	err := engine.Where("host_id=? and tag=?", hostId, tag).Iterate(new(HostState),
+		func(i int, bean interface{}) error {
+			state := bean.(*HostState)
+			states = append(states, state)
+			return nil
+		})
+	if err != nil {
+		return nil, err
+	} else if len(states) < 1 {
+		return nil, err
+	}
+	return states[0], err
 }
 
 func StateInsert(state *HostState) error {

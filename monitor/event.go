@@ -7,6 +7,7 @@ import (
 type Event struct {
 	Hostname   string
 	NetworkTag string
+	Status     string
 }
 
 type Events []*Event
@@ -16,6 +17,7 @@ type MonitorInterface interface {
 }
 
 func NewEventMonitor(cfg *config.MonitorConfig) MonitorInterface {
+
 	return NewSerfMonitor(cfg.Address)
 }
 

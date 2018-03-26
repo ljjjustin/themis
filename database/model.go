@@ -15,7 +15,7 @@ type ElectionRecord struct {
 	Id           uint32    `xorm:"autoincr pk"`
 	ElectionName string    `xorm:"varchar(64) unique notnull"`
 	LeaderName   string    `xorm:"varchar(64) notnull"`
-	LastUpdate   time.Time `xorm:"TIMESTAMP default CURRENT_TIMESTAMP"`
+	LastUpdate   time.Time `xorm:"TIMESTAMP"`
 }
 
 type Host struct {
@@ -25,10 +25,11 @@ type Host struct {
 }
 
 type HostState struct {
-	Id          int    `json:"id" xorm:"pk autoincr"`
-	HostId      int    `json:"host_id"`
-	Tag         string `json:"tag" binding:"required" xorm:"varchar(64) notnull"`
-	FailedTimes int    `json:"failed_times" xorm:"default 0"`
+	Id          int       `json:"id" xorm:"pk autoincr"`
+	HostId      int       `json:"host_id"`
+	Tag         string    `json:"tag" binding:"required" xorm:"varchar(64) notnull"`
+	FailedTimes int       `json:"failed_times" xorm:"default 0"`
+	UpdatedAt   time.Time `json:"updated_at" xorm:"TIMESTAMP"`
 }
 
 type HostFencer struct {
