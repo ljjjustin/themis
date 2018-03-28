@@ -3,20 +3,24 @@ package monitor
 import (
 	"time"
 
+	"github.com/ljjjustin/themis/config"
 	"github.com/ljjjustin/themis/database"
 )
 
 const (
-	flagManagement uint = 1 << 2
-	flagStorage    uint = 1 << 1
-	flagNetwork    uint = 1 << 0
+	flagManage  uint = 1 << 2
+	flagStorage uint = 1 << 1
+	flagNetwork uint = 1 << 0
+
+	// state
+	stateTransitionInterval = 60
 )
 
 var (
 	flagTagMap = map[string]uint{
-		"management": flagManagement,
-		"storage":    flagStorage,
-		"network":    flagNetwork,
+		"manage":  flagManage,
+		"storage": flagStorage,
+		"network": flagNetwork,
 	}
 	openstackDecisionMatrix = []bool{
 		/* +------------+----------+-----------+--------------+ */
@@ -35,16 +39,93 @@ var (
 )
 
 type PolicyEngine struct {
+	config         *config.ThemisConfig
 	decisionMatrix []bool
 }
 
-func NewPolicyEngine() *PolicyEngine {
+func NewPolicyEngine(config *config.ThemisConfig) *PolicyEngine {
 	return &PolicyEngine{
+		config:         config,
 		decisionMatrix: openstackDecisionMatrix,
 	}
 }
 
+func saveHost(host *database.Host) {
+	host.UpdatedAt = time.Now()
+	database.HostUpdate(host.Id, host)
+}
+
+func isAllActive(states []*database.HostState) bool {
+	allActive := true
+	for _, state := range states {
+		if state.FailedTimes > 0 {
+			allActive = false
+			break
+		}
+	}
+	return allActive
+}
+
+func hasAnyFailure(states []*database.HostState) bool {
+	hasFailure := false
+	for _, state := range states {
+		if state.FailedTimes > 0 {
+			hasFailure = true
+			break
+		}
+	}
+	return hasFailure
+}
+
+func hasFatalFailure(states []*database.HostState) bool {
+	keyStates := make([]*database.HostState, 0)
+	for _, s := range states {
+		if s.Tag == "network" || s.Tag == "storage" {
+			keyStates = append(keyStates, s)
+		}
+	}
+
+	hasFailure := false
+	for _, state := range keyStates {
+		if state.FailedTimes > 0 {
+			hasFailure = true
+			break
+		}
+	}
+	return hasFailure
+}
+
+func updateHostFSM(host *database.Host, states []*database.HostState) {
+
+	duration := time.Since(host.UpdatedAt).Seconds()
+	switch host.Status {
+	case HostActiveStatus:
+		if hasAnyFailure(states) {
+			host.Status = HostCheckingStatus
+			saveHost(host)
+		}
+	case HostInitialStatus:
+		if duration >= stateTransitionInterval {
+			if isAllActive(states) {
+				host.Status = HostActiveStatus
+				saveHost(host)
+			}
+		}
+	case HostCheckingStatus:
+		if duration >= stateTransitionInterval {
+			if isAllActive(states) {
+				host.Status = HostActiveStatus
+				saveHost(host)
+			} else if hasFatalFailure(states) {
+				host.Status = HostFailedStatus
+				saveHost(host)
+			}
+		}
+	}
+}
+
 func (p *PolicyEngine) HandleEvents(events Events) {
+
 	// group by hostname
 	hostTags := map[string]map[string]string{}
 	for _, e := range events {
@@ -60,6 +141,8 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 	}
 
 	for hostname, tags := range hostTags {
+		plog.Debugf("Handle %s's events.", hostname)
+
 		var host *database.Host
 		host, err := database.HostGetByName(hostname)
 		if err != nil {
@@ -67,7 +150,10 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 			return
 		} else if host == nil {
 			// save to database
-			host = &database.Host{Name: hostname}
+			host = &database.Host{
+				Name:   hostname,
+				Status: HostInitialStatus,
+			}
 			if err := database.HostInsert(host); err != nil {
 				plog.Warning("Save host failed", err)
 			}
@@ -75,7 +161,6 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 
 		// update host states
 		for tag, status := range tags {
-
 			state, err := database.StateGetByTag(host.Id, tag)
 			if err != nil {
 				plog.Warning("Can't find Host states by tag")
@@ -91,7 +176,13 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 					continue
 				}
 			}
-			updateState(state, status)
+			if status == "failed" {
+				state.FailedTimes += 1
+			} else if status == "active" {
+				if state.FailedTimes > 0 {
+					state.FailedTimes -= 1
+				}
+			}
 			database.StateUpdate(state.Id, state)
 		}
 
@@ -102,50 +193,56 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 			return
 		}
 
+		// update host status
+		plog.Debugf("update %s's status.", hostname)
+		updateHostFSM(host, states)
+
 		// judge if a host is down
 		if p.getDecision(host, states) {
-			go fenceHost(host)
+			go p.fenceHost(host, states)
 		}
 	}
 }
 
-func (p *PolicyEngine) getDecision(host *database.Host,
-	states []*database.HostState) bool {
+func (p *PolicyEngine) getDecision(host *database.Host, states []*database.HostState) bool {
+
+	if host.Disabled {
+		return false
+	}
 
 	var decision uint = 0
 	for _, s := range states {
-		if isDown(s) {
+		// judge if one network is down.
+		if s.FailedTimes >= 6 {
 			decision |= flagTagMap[s.Tag]
 		}
 	}
 	return p.decisionMatrix[decision]
 }
 
-func updateState(state *database.HostState, status string) {
-	if status == "active" && state.FailedTimes > 0 {
-		state.FailedTimes -= 1
-	} else if status == "failed" {
-		state.FailedTimes += 1
-	}
-}
+func (p *PolicyEngine) fenceHost(host *database.Host, states []*database.HostState) {
+	defer func() {
+		if err := recover(); err != nil {
+			plog.Warning("unexpected error during HandleEvents: ", err)
+		}
+	}()
 
-func isDown(state *database.HostState) bool {
-	// judge if one network is down.
-	duration := time.Since(state.UpdatedAt)
-	if duration.Seconds() >= 60 && state.FailedTimes >= 6 {
-		return true
-	} else {
-		return false
+	// check if we have disabled fence operation globally
+	if p.config.Fence.DisableFenceOps {
+		plog.Info("fence operation have been disabled.")
+		return
 	}
-}
 
-func fenceHost(host *database.Host) {
 	plog.Infof("fence host %s", host.Name)
+	// update host status
+	host.Status = HostFencingStatus
+	saveHost(host)
 
 	// execute power off through IPMI
 	fencers, err := database.FencerGetAll(host.Id)
 	if err != nil || len(fencers) < 1 {
 		plog.Warning("Can't find fencers with given host: ", host.Name)
+		return
 	}
 
 	var IPMIFencers []FencerInterface
@@ -163,5 +260,42 @@ func fenceHost(host *database.Host) {
 		break
 	}
 
-	// TODO: evacuate all virtual machine on that host
+	// evacuate all virtual machine on that host
+	nova, err := NewNovaClient(&p.config.Openstack)
+	if err != nil {
+		plog.Warning("Can't create nova client: ", err)
+		return
+	}
+
+	services, err := nova.ListServices()
+	if err != nil {
+		plog.Warning("Can't get service list", err)
+		return
+	}
+	for _, service := range services {
+		if host.Name == service.Host && service.Binary == "nova-compute" {
+			nova.ForceDownService(service)
+			nova.DisableService(service, "disabled by themis monitor")
+		}
+	}
+
+	servers, err := nova.ListServers(host.Name)
+	if err != nil {
+		plog.Warning("Can't get service list: ", err)
+		return
+	}
+	for _, server := range servers {
+		id := server.ID
+		plog.Infof("Try to evacuate instance: %s", id)
+		nova.Evacuate(id)
+	}
+
+	// disable host status
+	host.Status = HostFencedStatus
+	host.Disabled = true
+	for _, state := range states {
+		state.FailedTimes = 0
+		database.StateUpdate(state.Id, state)
+	}
+	saveHost(host)
 }

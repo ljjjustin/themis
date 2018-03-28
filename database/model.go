@@ -19,17 +19,18 @@ type ElectionRecord struct {
 }
 
 type Host struct {
-	Id     int    `json:"id" xorm:"pk autoincr"`
-	Name   string `json:"name" binding:"required" xorm:"varchar(64) unique notnull"`
-	Status string `json:"status"`
+	Id        int       `json:"id" xorm:"pk autoincr"`
+	Name      string    `json:"name" binding:"required" xorm:"varchar(64) unique notnull"`
+	Status    string    `json:"status" xrom:"varchar(64) default 'initializing'"`
+	Disabled  bool      `json:"disabled" xorm:"tinyint(1)" default false`
+	UpdatedAt time.Time `json:"updated_at" xorm:"TIMESTAMP"`
 }
 
 type HostState struct {
-	Id          int       `json:"id" xorm:"pk autoincr"`
-	HostId      int       `json:"host_id"`
-	Tag         string    `json:"tag" binding:"required" xorm:"varchar(64) notnull"`
-	FailedTimes int       `json:"failed_times" xorm:"default 0"`
-	UpdatedAt   time.Time `json:"updated_at" xorm:"TIMESTAMP"`
+	Id          int    `json:"id" xorm:"pk autoincr"`
+	HostId      int    `json:"host_id"`
+	Tag         string `json:"tag" binding:"required" xorm:"varchar(64) notnull"`
+	FailedTimes int    `json:"failed_times" xorm:"default 0"`
 }
 
 type HostFencer struct {

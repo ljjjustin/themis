@@ -23,7 +23,10 @@ type ThemisAgent struct {
 func NewThemisAgent(config *config.ThemisConfig) *ThemisAgent {
 	// fast fail if we can not connect to all collectors.
 	for _, monitor := range config.Monitors {
-		checkBindAddress(strings.Split(monitor.Address, ":")[0])
+		ip := strings.Split(monitor.Address, ":")[0]
+		if !hasBindAddress(ip) {
+			plog.Fatalf("no interface with ip %s", ip)
+		}
 	}
 	context, cancel := context.WithCancel(context.Background())
 

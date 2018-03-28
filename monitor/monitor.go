@@ -39,21 +39,13 @@ func NewThemisMonitor(config *config.ThemisConfig) *ThemisMonitor {
 	engine := database.Engine(&config.Database)
 	election := NewElection(leaderName, engine)
 
-	policyEngine := NewPolicyEngine()
-
-	var collectors []*EventCollector
-	for tag, monitor := range config.Monitors {
-		checkBindAddress(strings.Split(monitor.Address, ":")[0])
-		collector := NewEventCollector(tag, &monitor)
-		collectors = append(collectors, collector)
-	}
+	policyEngine := NewPolicyEngine(config)
 
 	return &ThemisMonitor{
-		config:          config,
-		context:         context,
-		election:        election,
-		policyEngine:    policyEngine,
-		eventCollectors: collectors,
+		config:       config,
+		context:      context,
+		election:     election,
+		policyEngine: policyEngine,
 	}
 }
 
@@ -108,7 +100,19 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 	leaderName := m.election.LeaderName
 
 	for {
-	StartElection:
+	StartMonitoring:
+		m.eventCollectors = make([]*EventCollector, 0)
+		for tag, monitor := range m.config.Monitors {
+			ip := strings.Split(monitor.Address, ":")[0]
+			if !hasBindAddress(ip) {
+				plog.Warningf("no interface with ip %s", ip)
+				time.Sleep(20 * time.Second)
+				goto StartMonitoring
+			}
+			collector := NewEventCollector(tag, &monitor)
+			m.eventCollectors = append(m.eventCollectors, collector)
+		}
+
 		monitorCtx, monitorCancel := context.WithCancel(ctx)
 		plog.Infof("%s start campaign leader.", leaderName)
 		// wait until we become a leader or a error occour
@@ -118,7 +122,7 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 		case err := <-electionErr:
 			plog.Warning(err)
 			monitorCancel()
-			goto StartElection
+			goto StartMonitoring
 		default:
 			plog.Infof("%s became leader.", leaderName)
 		}
@@ -133,11 +137,11 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 				// perform monitoring if we are still leader
 				plog.Info(err)
 				monitorCancel()
-				goto StartElection
+				goto StartMonitoring
 			case err := <-policyEngineErr:
 				plog.Info(err)
 				monitorCancel()
-				goto StartElection
+				goto StartMonitoring
 			case <-ctx.Done():
 				// stop all monitoring routines
 				monitorCancel()
@@ -159,15 +163,17 @@ func startPolicyEngine(ctx context.Context, m *ThemisMonitor) <-chan error {
 
 			time.Sleep(5 * time.Second)
 
+			allEvents := make(Events, 0)
 			for _, collector := range m.eventCollectors {
 				events, err := collector.DrainEvents()
 				if err != nil {
 					quit <- errors.New(err.Error())
 				}
 				if events != nil {
-					go m.policyEngine.HandleEvents(events)
+					allEvents = append(allEvents, events...)
 				}
 			}
+			m.policyEngine.HandleEvents(allEvents)
 		}
 	}()
 

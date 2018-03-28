@@ -20,8 +20,6 @@ func NewMonitorCommand() *cobra.Command {
 
 func monitorMain(cmd *cobra.Command, args []string) {
 
-	plog.Println("Parse config and loading config file...")
-
 	// load configurations
 	themisCfg := config.NewConfig(configFile)
 

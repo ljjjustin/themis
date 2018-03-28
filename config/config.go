@@ -22,6 +22,10 @@ type ThemisConfig struct {
 
 	Database DatabaseConfig
 	Monitors map[string]MonitorConfig
+
+	Fence FenceConfig
+
+	Openstack OpenstackConfig
 }
 
 type DatabaseConfig struct {
@@ -36,6 +40,19 @@ type DatabaseConfig struct {
 type MonitorConfig struct {
 	Type    string
 	Address string
+}
+
+type FenceConfig struct {
+	DisableFenceOps bool
+}
+
+type OpenstackConfig struct {
+	AuthURL     string
+	Username    string
+	Password    string
+	ProjectName string
+	DomainName  string
+	RegionName  string
 }
 
 func NewConfig(configFile string) *ThemisConfig {
@@ -67,15 +84,25 @@ func NewDefaultConfig() *ThemisConfig {
 			Password: "",
 		},
 		Monitors: map[string]MonitorConfig{},
+		Fence: FenceConfig{
+			DisableFenceOps: false,
+		},
+		Openstack: OpenstackConfig{
+			AuthURL:     "http://localhost:5000",
+			Username:    "admin",
+			Password:    "secretxx",
+			ProjectName: "admin",
+			DomainName:  "default",
+			RegionName:  "RegionOne",
+		},
 	}
 }
 
 func (cfg *ThemisConfig) SetupLogging() {
-	plog.Infof("log file path is: %s", cfg.LogFile)
-
-	capnslog.SetGlobalLogLevel(capnslog.INFO)
 	if cfg.Debug {
 		capnslog.SetGlobalLogLevel(capnslog.DEBUG)
+	} else {
+		capnslog.SetGlobalLogLevel(capnslog.INFO)
 	}
 
 	if cfg.LogFile != "" {

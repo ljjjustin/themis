@@ -58,10 +58,39 @@
 #
 # All supported drivers include: mysql, postgres, sqlite3, mssql.
 #
-# Required, Default: mysql
+# Required, Default: sqlite3
 #
 # driver = "mysql"
-# connection = "user:password@localhost/themis?charset=utf-8"
+
+# database connect address
+#
+# Required for mysql, Default: ""
+#
+# host = "localhost"
+
+# database connect port
+#
+# Required for mysql, Default: 0
+#
+# port = "3306"
+
+# database username
+#
+# Required for mysql, Default: themis
+#
+# username = "themis"
+
+# database password
+#
+# Required for mysql, Default: themispass
+#
+# username = "themispass"
+
+# database path
+#
+# Required for sqlite3, Default: themis.db
+#
+# path = "themis.db"
 
 ################################################################
 # Monitoring configurations
@@ -96,3 +125,46 @@
 # Optional, Default: false, which means we will take action if we see a host became down.
 #
 # disableFenceOps = false
+
+################################################################
+# Openstack configurations
+################################################################
+#
+# provide Openstack authentication information so that we can evacuate virtual machine
+# after fence operation.
+
+# Authentication URL.
+#
+# Required, Default: http://localhost:5000
+#
+# authURL = "http://localhost:5000"
+
+# Username
+#
+# Required, Default: admin
+#
+# username = "admin"
+
+# User's Password
+#
+# Required, Default: secretxx
+#
+# password = "secretxx"
+
+# Project name to scope to.
+#
+# Required, Default: default
+#
+# projectName = "admin"
+
+# Domain name to scope to.
+#
+# Required, Default: default
+#
+# domainName = "default"
+
+# Region name.
+#
+# Required, Default: RegionOne
+#
+# regionName = "RegionOne"

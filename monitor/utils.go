@@ -39,17 +39,17 @@ func getInterfaceAddrs() map[string][]string {
 	return ifaceAddrsMap
 }
 
-func checkBindAddress(ip string) {
+func hasBindAddress(ip string) bool {
 	ifaceAddrs := getInterfaceAddrs()
 
 	for _, addrs := range ifaceAddrs {
 		for _, addr := range addrs {
 			if ip == addr {
-				return
+				return true
 			}
 		}
 	}
-	plog.Fatalf("no interface with ip %s", ip)
+	return false
 }
 
 func getInterfaceByIP(ip string) string {
