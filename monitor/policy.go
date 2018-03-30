@@ -151,8 +151,9 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 		} else if host == nil {
 			// save to database
 			host = &database.Host{
-				Name:   hostname,
-				Status: HostInitialStatus,
+				Name:     hostname,
+				Status:   HostInitialStatus,
+				Disabled: false,
 			}
 			if err := database.HostInsert(host); err != nil {
 				plog.Warning("Save host failed", err)
@@ -176,9 +177,9 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 					continue
 				}
 			}
-			if status == "failed" {
+			if status == "failed" && !host.Disabled {
 				state.FailedTimes += 1
-			} else if status == "active" {
+			} else if status == "active" && !host.Disabled {
 				if state.FailedTimes > 0 {
 					state.FailedTimes -= 1
 				}
