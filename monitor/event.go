@@ -18,6 +18,7 @@ type MonitorInterface interface {
 
 func NewEventMonitor(cfg *config.MonitorConfig) MonitorInterface {
 
+	// TODO: create monitor according to monitor type
 	return NewSerfMonitor(cfg.Address)
 }
 

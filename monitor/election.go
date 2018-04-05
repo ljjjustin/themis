@@ -9,7 +9,9 @@ import (
 )
 
 const (
-	defaultElectionName = "themisLeader"
+	defaultElectionName      = "themisLeader"
+	defaultTermOfCampaign    = 30 // seconds
+	defaultKeepClaimInterval = defaultTermOfCampaign / 5
 )
 
 type Election struct {
@@ -32,16 +34,19 @@ func (e *Election) Campaign(ctx context.Context) <-chan error {
 			plog.Debug(err)
 			quit <- err
 			break
-		} else if succ {
-			// update authorization every 5 seconds.
-			plog.Debugf("%s campaign successed.", e.LeaderName)
+		}
+
+		if !succ {
+			// wait and campaign again
+			plog.Debugf("%s campaign failed, sleep %d seconds and try again.",
+				e.LeaderName, defaultTermOfCampaign)
+			time.Sleep(defaultTermOfCampaign * time.Second)
+			continue
+		} else {
+			// start a goroutine to keep claim every 5 seconds.
+			plog.Infof("%s campaign successed.", e.LeaderName)
 			go keepClaim(ctx, e.Engine, e.LeaderName, quit)
 			break
-		} else {
-			// wait 20 seconds and campaign again
-			plog.Debugf("%s campaign failed, sleep 20 seconds and try again.", e.LeaderName)
-			time.Sleep(20 * time.Second)
-			continue
 		}
 	}
 	return quit
@@ -53,7 +58,7 @@ func keepClaim(ctx context.Context, engine *xorm.Engine, leader string, quit cha
 		case <-ctx.Done():
 			plog.Info(ctx.Err())
 			return
-		case <-time.After(5 * time.Second):
+		case <-time.After(defaultKeepClaimInterval * time.Second):
 		}
 		plog.Debugf("%s updating authorization.", leader)
 		succ, err := campaign(engine, leader)
@@ -87,12 +92,26 @@ func (e *Election) IsLeader() (bool, error) {
 	}
 }
 
+// Quit end the term of leader
+func (e *Election) Quit() error {
+	isLeader, err := e.IsLeader()
+	if err != nil {
+		plog.Info("Failed to judge if we are the leader: ", err)
+	}
+
+	if isLeader {
+		sql := `DELETE FROM election_record where election_name=? and leader_name=?`
+		_, err = e.Engine.Exec(sql, defaultElectionName, e.LeaderName)
+	}
+	return err
+}
+
 func campaign(engine *xorm.Engine, leader string) (bool, error) {
 	sql := `INSERT IGNORE INTO election_record (election_name, leader_name, last_update) VALUES (?, ?, ?)
 			ON DUPLICATE KEY UPDATE
-			leader_name = IF(last_update < DATE_SUB(VALUES(last_update), INTERVAL 30 SECOND), VALUES(leader_name), leader_name),
+			leader_name = IF(last_update < DATE_SUB(VALUES(last_update), INTERVAL ? SECOND), VALUES(leader_name), leader_name),
 			last_update = IF(leader_name = VALUES(leader_name), VALUES(last_update), last_update)`
-	res, err := engine.Exec(sql, defaultElectionName, leader, time.Now())
+	res, err := engine.Exec(sql, defaultElectionName, leader, time.Now(), defaultTermOfCampaign)
 
 	if err != nil {
 		return false, err

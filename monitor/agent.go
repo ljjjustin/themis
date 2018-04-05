@@ -125,7 +125,7 @@ func monitorPid(pid int, quit chan<- struct{}) {
 		if err != nil {
 			break
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Second)
 	}
 	quit <- struct{}{}
 }

@@ -17,6 +17,11 @@ import (
 	"github.com/ljjjustin/themis/database"
 )
 
+const (
+	defaultEventCollectionInterval       = 6 * time.Second
+	defaultEventCollectorMonitorInterval = 10 * time.Second
+)
+
 var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "monitor")
 
 type ThemisMonitor struct {
@@ -29,8 +34,6 @@ type ThemisMonitor struct {
 }
 
 func NewThemisMonitor(config *config.ThemisConfig) *ThemisMonitor {
-	context := context.Background()
-
 	leaderName, err := os.Hostname()
 	if err != nil {
 		plog.Fatal(err)
@@ -41,9 +44,12 @@ func NewThemisMonitor(config *config.ThemisConfig) *ThemisMonitor {
 
 	policyEngine := NewPolicyEngine(config)
 
+	context, cancel := context.WithCancel(context.Background())
+
 	return &ThemisMonitor{
 		config:       config,
 		context:      context,
+		cancelFunc:   cancel,
 		election:     election,
 		policyEngine: policyEngine,
 	}
@@ -101,23 +107,31 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 
 	for {
 	StartMonitoring:
+		// create monitoring top context
+		monitorCtx, monitorCancel := context.WithCancel(ctx)
+
+		// create event collectors
+		plog.Info("Creating event collectors.")
 		m.eventCollectors = make([]*EventCollector, 0)
 		for tag, monitor := range m.config.Monitors {
 			ip := strings.Split(monitor.Address, ":")[0]
 			if !hasBindAddress(ip) {
 				plog.Warningf("no interface with ip %s", ip)
-				time.Sleep(20 * time.Second)
+				time.Sleep(defaultEventCollectorMonitorInterval)
 				goto StartMonitoring
 			}
 			collector := NewEventCollector(tag, &monitor)
 			m.eventCollectors = append(m.eventCollectors, collector)
 		}
+		// monitor event collectors
+		plog.Info("Starting event collector monitors.")
+		IPMonitorCtx, _ := context.WithCancel(monitorCtx)
+		IPMonitorErr := startIPMonitor(IPMonitorCtx, m)
 
-		monitorCtx, monitorCancel := context.WithCancel(ctx)
 		plog.Infof("%s start campaign leader.", leaderName)
-		// wait until we become a leader or a error occour
 		electionCtx, _ := context.WithCancel(monitorCtx)
 		electionErr := m.election.Campaign(electionCtx)
+		// wait until we become a leader or a error occour
 		select {
 		case err := <-electionErr:
 			plog.Warning(err)
@@ -128,13 +142,17 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 		}
 
 		// start policy engine who will handle events and make decision
+		plog.Info("Starting policy engine.")
 		policyEngineCtx, _ := context.WithCancel(monitorCtx)
 		policyEngineErr := startPolicyEngine(policyEngineCtx, m)
 
 		for {
 			select {
+			case err := <-IPMonitorErr:
+				plog.Info(err)
+				monitorCancel()
+				goto StartMonitoring
 			case err := <-electionErr:
-				// perform monitoring if we are still leader
 				plog.Info(err)
 				monitorCancel()
 				goto StartMonitoring
@@ -151,17 +169,47 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 	}
 }
 
+func startIPMonitor(ctx context.Context, m *ThemisMonitor) <-chan error {
+	quit := make(chan error, 1)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			plog.Info(ctx.Err())
+			return
+		case <-time.After(defaultEventCollectorMonitorInterval):
+		}
+
+		for _, monitor := range m.config.Monitors {
+			ip := strings.Split(monitor.Address, ":")[0]
+			if !hasBindAddress(ip) {
+				msg := fmt.Sprintf("no interface with ip %s", ip)
+				quit <- errors.New(msg)
+			}
+		}
+	}()
+
+	return quit
+}
+
 func startPolicyEngine(ctx context.Context, m *ThemisMonitor) <-chan error {
 	quit := make(chan error, 1)
-	plog.Info("Starting policy engine.")
 
 	go func() {
 		for {
+			// check if we should quit
+			select {
+			case <-ctx.Done():
+				plog.Info(ctx.Err())
+				return
+			default:
+			}
+
 			for _, collector := range m.eventCollectors {
 				collector.Start()
 			}
 
-			time.Sleep(5 * time.Second)
+			time.Sleep(defaultEventCollectionInterval)
 
 			allEvents := make(Events, 0)
 			for _, collector := range m.eventCollectors {
@@ -182,4 +230,6 @@ func startPolicyEngine(ctx context.Context, m *ThemisMonitor) <-chan error {
 
 func (m *ThemisMonitor) Stop() {
 	m.cancelFunc()
+	time.Sleep(100 * time.Millisecond)
+	m.election.Quit()
 }
