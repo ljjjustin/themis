@@ -157,16 +157,26 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 			}
 			if err := database.HostInsert(host); err != nil {
 				plog.Warning("Save host failed", err)
+				continue
 			}
 		}
 
 		// update host states
+		var states []*database.HostState
+		states, err = database.StateGetAll(host.Id)
+		if err != nil {
+			plog.Warning("Can't find Host states")
+			continue
+		}
 		for tag, status := range tags {
-			state, err := database.StateGetByTag(host.Id, tag)
-			if err != nil {
-				plog.Warning("Can't find Host states by tag")
-				continue
-			} else if state == nil {
+			var state *database.HostState
+			for i := range states {
+				if states[i].Tag == tag {
+					state = states[i]
+					break
+				}
+			}
+			if state == nil { // if we don't find matched state
 				state = &database.HostState{
 					HostId:      host.Id,
 					Tag:         tag,
@@ -184,11 +194,9 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 					state.FailedTimes += 1
 				}
 			}
-			database.StateUpdate(state.Id, state)
-			plog.Debugf("%d failed times: %d", state.HostId, state.FailedTimes)
+			database.StateUpdateFields(state, "failed_times")
 		}
 
-		var states []*database.HostState
 		states, err = database.StateGetAll(host.Id)
 		if err != nil {
 			plog.Warning("Can't find Host states")
@@ -300,7 +308,7 @@ func (p *PolicyEngine) fenceHost(host *database.Host, states []*database.HostSta
 	host.Disabled = true
 	for _, state := range states {
 		state.FailedTimes = 0
-		database.StateUpdate(state.Id, state)
+		database.StateUpdateFields(state, "failed_times")
 	}
 	saveHost(host)
 }

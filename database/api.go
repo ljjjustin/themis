@@ -131,23 +131,6 @@ func StateGetById(id int) (*HostState, error) {
 	}
 }
 
-func StateGetByTag(hostId int, tag string) (*HostState, error) {
-	states := make([]*HostState, 0)
-
-	err := engine.Where("host_id=? and tag=?", hostId, tag).Iterate(new(HostState),
-		func(i int, bean interface{}) error {
-			state := bean.(*HostState)
-			states = append(states, state)
-			return nil
-		})
-	if err != nil {
-		return nil, err
-	} else if len(states) < 1 {
-		return nil, err
-	}
-	return states[0], err
-}
-
 func StateInsert(state *HostState) error {
 	_, err := engine.Insert(state)
 	return err
@@ -155,6 +138,11 @@ func StateInsert(state *HostState) error {
 
 func StateUpdate(id int, state *HostState) error {
 	_, err := engine.ID(id).Update(state)
+	return err
+}
+
+func StateUpdateFields(state *HostState, fields ...string) error {
+	_, err := engine.ID(state.Id).Cols(fields...).Update(state)
 	return err
 }
 
