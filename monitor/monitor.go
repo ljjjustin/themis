@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 )
 
 const (
+	defaultElectionProclaimInterval      = 6 * time.Second
 	defaultEventCollectionInterval       = 6 * time.Second
 	defaultEventCollectorMonitorInterval = 10 * time.Second
 )
@@ -28,6 +30,7 @@ type ThemisMonitor struct {
 	config          *config.ThemisConfig
 	context         context.Context
 	cancelFunc      context.CancelFunc
+	waitGroup       sync.WaitGroup
 	election        *Election
 	policyEngine    *PolicyEngine
 	eventCollectors []*EventCollector
@@ -78,7 +81,6 @@ func (m *ThemisMonitor) Start() {
 }
 
 func startAPIServer(ctx context.Context, m *ThemisMonitor) {
-
 	listenAddrs := fmt.Sprintf("%s:%d",
 		m.config.BindHost, m.config.BindPort)
 
@@ -88,21 +90,25 @@ func startAPIServer(ctx context.Context, m *ThemisMonitor) {
 	}
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			plog.Fatalf("Failed to start REST API: %s", err)
-		}
+		m.waitGroup.Add(1)
+		defer m.waitGroup.Done()
+
+		server.ListenAndServe()
 	}()
 
 	select {
 	case <-ctx.Done():
+		plog.Info("REST API exiting: ", ctx.Err())
 		if err := server.Shutdown(ctx); err != nil {
-			plog.Warningf("Failed to shutdown REST API: %s", err)
+			plog.Warningf("Shutdown REST API failed: %s", err)
 		}
-		plog.Info("REST API exiting.")
 	}
 }
 
 func startMonitoring(ctx context.Context, m *ThemisMonitor) {
+	m.waitGroup.Add(1)
+	defer m.waitGroup.Done()
+
 	leaderName := m.election.LeaderName
 
 	for {
@@ -130,16 +136,7 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 
 		plog.Infof("%s start campaign leader.", leaderName)
 		electionCtx, _ := context.WithCancel(monitorCtx)
-		electionErr := m.election.Campaign(electionCtx)
-		// wait until we become a leader or a error occour
-		select {
-		case err := <-electionErr:
-			plog.Warning(err)
-			monitorCancel()
-			goto StartMonitoring
-		default:
-			plog.Infof("%s became leader.", leaderName)
-		}
+		electionErr := startCampaign(electionCtx, m)
 
 		// start policy engine who will handle events and make decision
 		plog.Info("Starting policy engine.")
@@ -162,6 +159,7 @@ func startMonitoring(ctx context.Context, m *ThemisMonitor) {
 				goto StartMonitoring
 			case <-ctx.Done():
 				// stop all monitoring routines
+				plog.Info("Monitoring exiting: ", ctx.Err())
 				monitorCancel()
 				return
 			}
@@ -173,18 +171,66 @@ func startIPMonitor(ctx context.Context, m *ThemisMonitor) <-chan error {
 	quit := make(chan error, 1)
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			plog.Info(ctx.Err())
-			return
-		case <-time.After(defaultEventCollectorMonitorInterval):
-		}
+		m.waitGroup.Add(1)
+		defer m.waitGroup.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				plog.Info("IP monitor exiting: ", ctx.Err())
+				return
+			case <-time.After(defaultEventCollectorMonitorInterval):
+			}
 
-		for _, monitor := range m.config.Monitors {
-			ip := strings.Split(monitor.Address, ":")[0]
-			if !hasBindAddress(ip) {
-				msg := fmt.Sprintf("no interface with ip %s", ip)
-				quit <- errors.New(msg)
+			for _, monitor := range m.config.Monitors {
+				ip := strings.Split(monitor.Address, ":")[0]
+				if !hasBindAddress(ip) {
+					msg := fmt.Sprintf("no interface with ip %s", ip)
+					quit <- errors.New(msg)
+				}
+			}
+		}
+	}()
+
+	return quit
+}
+
+func startCampaign(ctx context.Context, m *ThemisMonitor) <-chan error {
+	quit := make(chan error, 1)
+
+	leaderName := m.election.LeaderName
+	electionErr := m.election.Campaign(ctx)
+	// wait until we become a leader or a error occour
+	select {
+	case err := <-electionErr:
+		plog.Warning(err)
+		quit <- err
+		return quit
+	default:
+		plog.Infof("%s became leader.", leaderName)
+	}
+
+	go func() {
+		m.waitGroup.Add(1)
+		defer m.waitGroup.Done()
+
+		defer m.election.Quit()
+		for {
+			select {
+			case <-ctx.Done():
+				plog.Info("Proclaim exiting: ", ctx.Err())
+				return
+			case <-time.After(defaultElectionProclaimInterval):
+			}
+			plog.Debugf("%s updating term.", leaderName)
+			succ, err := m.election.Proclaim()
+			if err != nil {
+				plog.Info("update term failed: ", err)
+				quit <- err
+				return
+			} else if !succ {
+				plog.Infof("%s proclaim failed, we are not leader now.", leaderName)
+				quit <- errors.New("Leader changed.")
+				return
 			}
 		}
 	}()
@@ -196,11 +242,14 @@ func startPolicyEngine(ctx context.Context, m *ThemisMonitor) <-chan error {
 	quit := make(chan error, 1)
 
 	go func() {
+		m.waitGroup.Add(1)
+		defer m.waitGroup.Done()
+
 		for {
 			// check if we should quit
 			select {
 			case <-ctx.Done():
-				plog.Info(ctx.Err())
+				plog.Info("policy engine exiting: ", ctx.Err())
 				return
 			default:
 			}
@@ -230,6 +279,5 @@ func startPolicyEngine(ctx context.Context, m *ThemisMonitor) <-chan error {
 
 func (m *ThemisMonitor) Stop() {
 	m.cancelFunc()
-	time.Sleep(100 * time.Millisecond)
-	m.election.Quit()
+	m.waitGroup.Wait()
 }

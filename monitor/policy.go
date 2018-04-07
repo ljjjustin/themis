@@ -177,14 +177,15 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 					continue
 				}
 			}
-			if status == "failed" && !host.Disabled {
-				state.FailedTimes += 1
-			} else if status == "active" && !host.Disabled {
-				if state.FailedTimes > 0 {
+			if !host.Disabled {
+				if status == "active" && state.FailedTimes > 0 {
 					state.FailedTimes -= 1
+				} else if status == "failed" {
+					state.FailedTimes += 1
 				}
 			}
 			database.StateUpdate(state.Id, state)
+			plog.Debugf("%d failed times: %d", state.HostId, state.FailedTimes)
 		}
 
 		var states []*database.HostState
@@ -193,6 +194,9 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 			plog.Warning("Can't find Host states")
 			return
 		}
+		for _, state := range states {
+			plog.Debugf("%d failed times: %d", state.HostId, state.FailedTimes)
+		}
 
 		// update host status
 		plog.Debugf("update %s's status.", hostname)
@@ -200,7 +204,7 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 
 		// judge if a host is down
 		if p.getDecision(host, states) {
-			go p.fenceHost(host, states)
+			p.fenceHost(host, states)
 		}
 	}
 }

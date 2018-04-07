@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/coreos/pkg/capnslog"
 	_ "github.com/go-sql-driver/mysql"
@@ -36,6 +37,8 @@ func Engine(cfg *config.DatabaseConfig) *xorm.Engine {
 		if err != nil {
 			plog.Fatal(err)
 		}
+		engine.DatabaseTZ = time.Local
+		engine.TZLocation = time.Local
 		// fast fail if if we can not connect to database
 		err = engine.Ping()
 		if err != nil {
