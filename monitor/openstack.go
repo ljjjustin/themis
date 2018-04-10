@@ -110,7 +110,7 @@ func (nova *NovaClient) DisableService(s services.Service, reason string) (r gop
 }
 
 func (nova *NovaClient) ListServers(hostname string) ([]servers.Server, error) {
-	listOpts := servers.ListOpts{Host: hostname}
+	listOpts := servers.ListOpts{Host: hostname, AllTenants: true}
 	pages, err := servers.List(nova.client, listOpts).AllPages()
 	if err != nil {
 		return nil, err

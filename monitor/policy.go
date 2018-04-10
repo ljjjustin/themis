@@ -52,7 +52,7 @@ func NewPolicyEngine(config *config.ThemisConfig) *PolicyEngine {
 
 func saveHost(host *database.Host) {
 	host.UpdatedAt = time.Now()
-	database.HostUpdate(host.Id, host)
+	database.HostUpdateFields(host, "status", "disabled", "updated_at")
 }
 
 func isAllActive(states []*database.HostState) bool {
@@ -211,7 +211,7 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 		updateHostFSM(host, states)
 
 		// judge if a host is down
-		if p.getDecision(host, states) {
+		if !host.Disabled && p.getDecision(host, states) {
 			p.fenceHost(host, states)
 		}
 	}
@@ -246,7 +246,7 @@ func (p *PolicyEngine) fenceHost(host *database.Host, states []*database.HostSta
 		return
 	}
 
-	plog.Infof("fence host %s", host.Name)
+	plog.Infof("Begin fence host %s", host.Name)
 	// update host status
 	host.Status = HostFencingStatus
 	saveHost(host)
@@ -306,9 +306,5 @@ func (p *PolicyEngine) fenceHost(host *database.Host, states []*database.HostSta
 	// disable host status
 	host.Status = HostFencedStatus
 	host.Disabled = true
-	for _, state := range states {
-		state.FailedTimes = 0
-		database.StateUpdateFields(state, "failed_times")
-	}
 	saveHost(host)
 }

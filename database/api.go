@@ -101,6 +101,11 @@ func HostUpdate(id int, host *Host) error {
 	return err
 }
 
+func HostUpdateFields(host *Host, fields ...string) error {
+	_, err := engine.ID(host.Id).Cols(fields...).Update(host)
+	return err
+}
+
 func HostDelete(id int) error {
 	_, err := engine.ID(id).Delete(new(Host))
 	return err
