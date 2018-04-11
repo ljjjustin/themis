@@ -22,6 +22,10 @@ var (
 		"storage": flagStorage,
 		"network": flagNetwork,
 	}
+	doFenceStatus = []string{
+		HostFailedStatus,
+		HostFailedStatus,
+	}
 	openstackDecisionMatrix = []bool{
 		/* +------------+----------+-----------+--------------+ */
 		/* | Management | Storage  | Network   |    Fence     | */
@@ -202,16 +206,12 @@ func (p *PolicyEngine) HandleEvents(events Events) {
 			plog.Warning("Can't find Host states")
 			return
 		}
-		for _, state := range states {
-			plog.Debugf("%d failed times: %d", state.HostId, state.FailedTimes)
-		}
-
 		// update host status
-		plog.Debugf("update %s's status.", hostname)
+		plog.Debugf("update %s's FSM.", hostname)
 		updateHostFSM(host, states)
 
 		// judge if a host is down
-		if !host.Disabled && p.getDecision(host, states) {
+		if p.getDecision(host, states) {
 			p.fenceHost(host, states)
 		}
 	}
@@ -223,6 +223,13 @@ func (p *PolicyEngine) getDecision(host *database.Host, states []*database.HostS
 		return false
 	}
 
+	statusDecision := false
+	for _, status := range doFenceStatus {
+		if host.Status == status {
+			statusDecision = true
+		}
+	}
+
 	var decision uint = 0
 	for _, s := range states {
 		// judge if one network is down.
@@ -230,7 +237,8 @@ func (p *PolicyEngine) getDecision(host *database.Host, states []*database.HostS
 			decision |= flagTagMap[s.Tag]
 		}
 	}
-	return p.decisionMatrix[decision]
+
+	return statusDecision && p.decisionMatrix[decision]
 }
 
 func (p *PolicyEngine) fenceHost(host *database.Host, states []*database.HostState) {
