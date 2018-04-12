@@ -156,7 +156,19 @@ func StateDelete(id int) error {
 	return err
 }
 
-func FencerGetAll(hostId int) ([]*HostFencer, error) {
+func FencerGetAll() ([]*HostFencer, error) {
+	fencers := make([]*HostFencer, 0)
+
+	err := engine.Iterate(new(HostFencer),
+		func(i int, bean interface{}) error {
+			fencer := bean.(*HostFencer)
+			fencers = append(fencers, fencer)
+			return nil
+		})
+	return fencers, err
+}
+
+func FencerGetByHost(hostId int) ([]*HostFencer, error) {
 	fencers := make([]*HostFencer, 0)
 
 	err := engine.Where("host_id=?", hostId).Iterate(new(HostFencer),

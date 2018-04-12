@@ -8,18 +8,45 @@ import (
 )
 
 func init() {
-	Router().POST("/hosts/:id/fencers", CreateFencer)
-	Router().GET("/hosts/:id/fencers", GetHostFencers)
-	Router().PUT("/hosts/:id/fencers/:fid", UpdateFencer)
-	Router().DELETE("/hosts/:id/fencers/:fid", DeleteFencer)
+	Router().GET("/fencers", ListFencers)
+	Router().GET("/fencers/:fid", GetFencer)
+	Router().POST("/fencers", CreateFencer)
+	Router().PUT("/fencers/:fid", UpdateFencer)
+	Router().DELETE("/fencers/:fid", DeleteFencer)
+}
+
+func ListFencers(c *gin.Context) {
+	fencers, err := database.FencerGetAll()
+	if err != nil {
+		AbortWithError(http.StatusInternalServerError, err)
+	}
+
+	c.JSON(http.StatusOK, fencers)
+}
+
+func GetFencer(c *gin.Context) {
+	fencerId := GetId(c, "fid")
+
+	fencer, err := database.FencerGetById(fencerId)
+	if err != nil {
+		AbortWithError(http.StatusInternalServerError, err)
+	} else if fencer == nil {
+		AbortWithError(http.StatusNotFound, err)
+	}
+
+	c.JSON(http.StatusOK, fencer)
 }
 
 func CreateFencer(c *gin.Context) {
 	var fencer database.HostFencer
 	ParseBody(c, &fencer)
 
-	host := GetHost(c)
-	fencer.HostId = host.Id
+	host, err := database.HostGetById(fencer.HostId)
+	if err != nil {
+		AbortWithError(http.StatusInternalServerError, err)
+	} else if host == nil {
+		AbortWithError(http.StatusBadRequest, ErrNotFound)
+	}
 	if 0 == fencer.Port {
 		fencer.Port = 623
 	}
@@ -29,19 +56,8 @@ func CreateFencer(c *gin.Context) {
 	if err := database.FencerInsert(&fencer); err != nil {
 		AbortWithError(http.StatusNotAcceptable, err)
 	} else {
-		c.JSON(http.StatusOK, fencer)
+		c.JSON(http.StatusCreated, fencer)
 	}
-}
-
-func GetHostFencers(c *gin.Context) {
-	host := GetHost(c)
-
-	fencers, err := database.FencerGetAll(host.Id)
-	if err != nil {
-		AbortWithError(http.StatusInternalServerError, err)
-	}
-
-	c.JSON(http.StatusOK, fencers)
 }
 
 func UpdateFencer(c *gin.Context) {
@@ -59,7 +75,7 @@ func UpdateFencer(c *gin.Context) {
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(200, fencer)
+		c.JSON(http.StatusAccepted, fencer)
 	}
 }
 

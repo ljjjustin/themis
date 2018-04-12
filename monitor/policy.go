@@ -260,7 +260,7 @@ func (p *PolicyEngine) fenceHost(host *database.Host, states []*database.HostSta
 	saveHost(host)
 
 	// execute power off through IPMI
-	fencers, err := database.FencerGetAll(host.Id)
+	fencers, err := database.FencerGetByHost(host.Id)
 	if err != nil || len(fencers) < 1 {
 		plog.Warning("Can't find fencers with given host: ", host.Name)
 		return

@@ -34,7 +34,7 @@ func CreateState(c *gin.Context) {
 	if err := database.StateInsert(&state); err != nil {
 		AbortWithError(http.StatusNotAcceptable, err)
 	} else {
-		c.JSON(http.StatusOK, state)
+		c.JSON(http.StatusCreated, state)
 	}
 }
 
@@ -74,7 +74,7 @@ func UpdateState(c *gin.Context) {
 	if err != nil {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {
-		c.JSON(200, state)
+		c.JSON(http.StatusAccepted, state)
 	}
 }
 
