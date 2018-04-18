@@ -1,0 +1,4 @@
+[gerrit]
+host=review.polex.io
+port=29418
+project=polex/themis.git
