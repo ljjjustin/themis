@@ -5,22 +5,7 @@ import (
 	"github.com/ljjjustin/themis/database"
 )
 
-
-const (
-	flagManage  uint = 1 << 2
-	flagStorage uint = 1 << 1
-	flagNetwork uint = 1 << 0
-)
-
-var (
-	flagTagMap = map[string]uint{
-		"manage":  flagManage,
-		"storage": flagStorage,
-		"network": flagNetwork,
-	}
-	doFenceStatus = HostFailedStatus
-
-	openstackDecisionMatrix = []bool{
+var openstackDecisionMatrix = []bool{
 		/* +------------+----------+-----------+--------------+ */
 		/* | Management | Storage  | Network   |    Fence     | */
 		/* +------------+----------+-----------+--------------+ */
@@ -33,19 +18,30 @@ var (
 		/* | bad        | bad      | good      | */ true, /*  | */
 		/* | bad        | bad      | bad       | */ true, /*  | */
 		/* +-----------------------------------+--------------+ */
-	}
-)
+}
 
 type OpenstackWorker struct {
 	config         *config.ThemisConfig
 	decisionMatrix []bool
+	flagTagMap  map[string]uint
 }
 
-func NewOpenstackWorker(config *config.ThemisConfig) *OpenstackWorker{
+func NewOpenstackWorker(config *config.ThemisConfig) *OpenstackWorker {
+
+	var flagManage  uint = 1 << 2
+	var flagStorage uint = 1 << 1
+	var flagNetwork uint = 1 << 0
+
+	flagTagMap := map[string]uint{
+		"manage":  flagManage,
+		"storage": flagStorage,
+		"network": flagNetwork,
+	}
 
 	return &OpenstackWorker{
 		config: config,
 		decisionMatrix: openstackDecisionMatrix,
+		flagTagMap: flagTagMap,
 	}
 }
 
@@ -64,7 +60,7 @@ func (w *OpenstackWorker) GetDecision(host *database.Host, states []*database.Ho
 	for _, s := range states {
 		// judge if one network is down.
 		if s.FailedTimes >= 6 {
-			decision |= flagTagMap[s.Tag]
+			decision |= w.flagTagMap[s.Tag]
 		}
 	}
 
@@ -89,39 +85,43 @@ func (w *OpenstackWorker) FenceHost(host *database.Host, states []*database.Host
 	host.Status = HostFencingStatus
 	saveHost(host)
 
-	// execute power off through IPMI
-	fencers, err := database.FencerGetByHost(host.Id)
-	if err != nil || len(fencers) < 1 {
-		plog.Warning("Can't find fencers with given host: ", host.Name)
+	err := powerOffHost(host)
+	if err != nil {
 		return
 	}
 
-	var IPMIFencers []FencerInterface
-	for _, fencer := range fencers {
-		IPMIFencers = append(IPMIFencers, NewFencer(fencer))
+	// update host status
+	host.Status = HostFencedStatus
+	saveHost(host)
+
+	// update host status
+	host.Status = HostEvcuatingStatus
+	saveHost(host)
+
+	err = w.Evcuate(host)
+	if err != nil {
+		return
 	}
 
-	plog.Debug("Begin execute fence operation")
-	for _, fencer := range IPMIFencers {
-		if err := fencer.Fence(); err != nil {
-			plog.Warningf("Fence operation failed on host %s", host.Name)
-			continue
-		}
-		plog.Infof("Fence operation successed on host: %s", host.Name)
-		break
-	}
+	// disable host status
+	host.Status = HostFencedStatus
+	host.Disabled = true
+	saveHost(host)
+}
+
+func (w *OpenstackWorker) Evcuate(host *database.Host) error {
 
 	// evacuate all virtual machine on that host
 	nova, err := NewNovaClient(&w.config.Openstack)
 	if err != nil {
 		plog.Warning("Can't create nova client: ", err)
-		return
+		return err
 	}
 
 	services, err := nova.ListServices()
 	if err != nil {
 		plog.Warning("Can't get service list", err)
-		return
+		return err
 	}
 	for _, service := range services {
 		if host.Name == service.Host && service.Binary == "nova-compute" {
@@ -133,7 +133,7 @@ func (w *OpenstackWorker) FenceHost(host *database.Host, states []*database.Host
 	servers, err := nova.ListServers(host.Name)
 	if err != nil {
 		plog.Warning("Can't get service list: ", err)
-		return
+		return err
 	}
 	for _, server := range servers {
 		id := server.ID
@@ -141,8 +141,5 @@ func (w *OpenstackWorker) FenceHost(host *database.Host, states []*database.Host
 		nova.Evacuate(id)
 	}
 
-	// disable host status
-	host.Status = HostFencedStatus
-	host.Disabled = true
-	saveHost(host)
+	return nil
 }

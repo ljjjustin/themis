@@ -9,4 +9,6 @@ const (
 	HostFailedStatus   = "failed"
 	HostFencingStatus  = "fencing"
 	HostFencedStatus   = "fenced"
+	HostEvcuatingStatus = "evcuating"
+	HostEvcuatedStatue = "evcuated"
 )

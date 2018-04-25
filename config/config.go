@@ -26,6 +26,8 @@ type ThemisConfig struct {
 	Fence FenceConfig
 
 	Openstack OpenstackConfig
+
+	CatKeeper CatkeeperConfig
 }
 
 type DatabaseConfig struct {
@@ -53,6 +55,11 @@ type OpenstackConfig struct {
 	ProjectName string
 	DomainName  string
 	RegionName  string
+}
+
+type CatkeeperConfig struct {
+	Url	 string
+	Username string
 }
 
 func NewConfig(configFile string) *ThemisConfig {
@@ -94,6 +101,10 @@ func NewDefaultConfig() *ThemisConfig {
 			ProjectName: "admin",
 			DomainName:  "default",
 			RegionName:  "RegionOne",
+		},
+		CatKeeper: CatkeeperConfig{
+			Url:		"http://127.0.0.1",
+			Username:	"admin",
 		},
 	}
 }

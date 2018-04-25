@@ -129,6 +129,7 @@
 ################################################################
 # Openstack configurations
 ################################################################
+[openstack]
 #
 # provide Openstack authentication information so that we can evacuate virtual machine
 # after fence operation.
@@ -168,3 +169,16 @@
 # Required, Default: RegionOne
 #
 # regionName = "RegionOne"
+
+################################################################
+# CatKeeper configurations
+################################################################
+[catkeeper]
+#
+# Catkeeper's url
+#
+# url = "http://127.0.0.1"
+#
+# Catkeeper's user
+#
+# username = "admin"
