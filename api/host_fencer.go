@@ -13,6 +13,7 @@ func init() {
 	Router().POST("/fencers", CreateFencer)
 	Router().PUT("/fencers/:fid", UpdateFencer)
 	Router().DELETE("/fencers/:fid", DeleteFencer)
+	Router().GET("/fencedTimes", ShowFencedTimes)
 }
 
 func ListFencers(c *gin.Context) {
@@ -85,5 +86,22 @@ func DeleteFencer(c *gin.Context) {
 		AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		c.Data(204, "application/json", make([]byte, 0))
+	}
+}
+
+func ShowFencedTimes(c *gin.Context) {
+
+	fencedTimes, err := database.GetFencedTimes()
+	if err != nil {
+		AbortWithError(http.StatusInternalServerError, err)
+	} else {
+
+		resp := struct {
+			FencedTimes int64 `json:"fenced_times"`
+		}{
+			fencedTimes,
+		}
+
+		c.JSON(http.StatusOK, resp)
 	}
 }

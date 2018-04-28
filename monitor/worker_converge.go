@@ -89,6 +89,7 @@ func (w *ConvergeWorker) FenceHost(host *database.Host, states []*database.HostS
 
 	// update host status
 	host.Status = HostFencedStatus
+	host.FencedTimes += 1
 	saveHost(host)
 
 	// update host status

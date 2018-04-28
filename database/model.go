@@ -24,6 +24,7 @@ type Host struct {
 	Status    string    `json:"status" xrom:"varchar(64) default 'initializing'"`
 	Disabled  bool      `json:"disabled" xorm:"tinyint(1)" default false`
 	UpdatedAt time.Time `json:"updated_at" xorm:"TIMESTAMP"`
+	FencedTimes int	      `json:"fenced_times" xorm:"default 0"`
 }
 
 type HostState struct {

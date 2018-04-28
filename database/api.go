@@ -221,3 +221,12 @@ func GetLeader(electionName string) (*ElectionRecord, error) {
 		return nil, nil
 	}
 }
+
+func GetFencedTimes() (int64 ,error) {
+
+	var host = Host{}
+
+	fencedTimes, err := engine.SumInt(&host, "fenced_times")
+
+	return fencedTimes, err
+}
