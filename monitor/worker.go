@@ -3,6 +3,7 @@ package monitor
 import (
 	"github.com/ljjjustin/themis/config"
 	"github.com/ljjjustin/themis/database"
+	"github.com/ljjjustin/themis/fence"
 )
 
 var doFenceStatus = HostFailedStatus
@@ -26,9 +27,9 @@ func powerOffHost(host *database.Host) error {
 		return err
 	}
 
-	var IPMIFencers []FencerInterface
+	var IPMIFencers []fence.FencerInterface
 	for _, fencer := range fencers {
-		IPMIFencers = append(IPMIFencers, NewFencer(fencer))
+		IPMIFencers = append(IPMIFencers, fence.NewFencer(fencer))
 	}
 
 	plog.Debug("Begin execute fence operation")

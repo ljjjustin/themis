@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ljjjustin/themis/database"
+	"github.com/ljjjustin/themis/fence"
 )
 
 func init() {
@@ -52,7 +53,11 @@ func CreateFencer(c *gin.Context) {
 		fencer.Port = 623
 	}
 
-	// FIXME: validate before insert into database.
+	//checkout ipmi validite
+	ipmiFencer := fence.NewIPMIFencer(&fencer)
+	if err := ipmiFencer.Ping(); err != nil {
+		AbortWithError(http.StatusNotAcceptable, err)
+	}
 
 	if err := database.FencerInsert(&fencer); err != nil {
 		AbortWithError(http.StatusNotAcceptable, err)
