@@ -34,7 +34,6 @@ func init() {
 	rootCmd.AddCommand(
 		NewHostCommand(),
 		NewFencerCommand(),
-		NewLeaderCommand(),
 	)
 }
 

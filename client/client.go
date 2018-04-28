@@ -149,22 +149,3 @@ func (c *ThemisClient) DeleteFencer(id int) error {
 	url := fmt.Sprintf("%s/fencers/%d", c.BaseUrl, id)
 	return c.http.Delete(url, nil)
 }
-
-type ElectionRecord struct {
-	Id           uint32    `json:"id"`
-	ElectionName string    `json:"election_name"`
-	LeaderName   string    `json:"leader_name"`
-	LastUpdate   time.Time `json:"last_update"`
-}
-
-func (c *ThemisClient) GetLeader() (ElectionRecord, error) {
-
-	var leader ElectionRecord
-
-	url := fmt.Sprintf("%s/leader", c.BaseUrl)
-
-	result := c.http.Get(url, nil)
-	err := result.ExtractInto(&leader)
-
-	return leader, err
-}

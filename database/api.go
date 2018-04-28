@@ -207,17 +207,3 @@ func FencerDelete(id int) error {
 	_, err := engine.ID(id).Delete(new(HostFencer))
 	return err
 }
-
-func GetLeader(electionName string) (*ElectionRecord, error) {
-
-	var leaders = ElectionRecord{ElectionName: electionName}
-
-	exist, err := engine.Get(&leaders)
-	if err != nil {
-		return nil, err
-	} else if exist {
-		return &leaders, nil
-	} else {
-		return nil, nil
-	}
-}
