@@ -12,10 +12,10 @@ func init() {
 }
 
 type ElectionRecord struct {
-	Id           uint32    `xorm:"autoincr pk"`
-	ElectionName string    `xorm:"varchar(64) unique notnull"`
-	LeaderName   string    `xorm:"varchar(64) notnull"`
-	LastUpdate   time.Time `xorm:"TIMESTAMP"`
+	Id           uint32    `json:"id" xorm:"autoincr pk"`
+	ElectionName string    `json:"election_name" xorm:"varchar(64) unique notnull"`
+	LeaderName   string    `json:"leader_name" xorm:"varchar(64) notnull"`
+	LastUpdate   time.Time `json:"last_update" xorm:"TIMESTAMP"`
 }
 
 type Host struct {
