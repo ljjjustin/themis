@@ -2,7 +2,6 @@ package serf
 
 import (
 	"io"
-	"log"
 	"os"
 	"time"
 
@@ -112,10 +111,6 @@ type Config struct {
 	// node.
 	FlapTimeout time.Duration
 
-	// QueueCheckInterval is the interval at which we check the message
-	// queue to apply the warning and max depth.
-	QueueCheckInterval time.Duration
-
 	// QueueDepthWarning is used to generate warning message if the
 	// number of queued messages to broadcast exceeds this number. This
 	// is to provide the user feedback if events are being triggered
@@ -126,12 +121,6 @@ type Config struct {
 	// of queued messages to broadcast exceeds this number. This is to
 	// prevent an unbounded growth of memory utilization
 	MaxQueueDepth int
-
-	// MinQueueDepth, if >0 will enforce a lower limit for dropping messages
-	// and then the max will be max(MinQueueDepth, 2*SizeOfCluster). This
-	// defaults to 0 which disables this dynamic sizing feature. If this is
-	// >0 then MaxQueueDepth will be ignored.
-	MinQueueDepth int
 
 	// RecentIntentTimeout is used to determine how long we store recent
 	// join and leave intents. This is used to guard against the case where
@@ -193,12 +182,6 @@ type Config struct {
 	// LogOutput is the location to write logs to. If this is not set,
 	// logs will go to stderr.
 	LogOutput io.Writer
-
-	// Logger is a custom logger which you provide. If Logger is set, it will use
-	// this for the internal logger. If Logger is not set, it will fall back to the
-	// behavior for using LogOutput. You cannot specify both LogOutput and Logger
-	// at the same time.
-	Logger *log.Logger
 
 	// SnapshotPath if provided is used to snapshot live nodes as well
 	// as lamport clock values. When Serf is started with a snapshot,
@@ -263,7 +246,6 @@ func DefaultConfig() *Config {
 		RecentIntentTimeout:          5 * time.Minute,
 		ReconnectInterval:            30 * time.Second,
 		ReconnectTimeout:             24 * time.Hour,
-		QueueCheckInterval:           30 * time.Second,
 		QueueDepthWarning:            128,
 		MaxQueueDepth:                4096,
 		TombstoneTimeout:             24 * time.Hour,
