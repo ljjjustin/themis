@@ -119,7 +119,7 @@ func DisableHost(c *gin.Context) {
 		AbortWithError(http.StatusNotFound, err)
 	}
 
-	host.Disabled = false
+	host.Disabled = true
 	database.HostUpdateFields(host, "disabled")
 	c.JSON(http.StatusAccepted, host)
 }
