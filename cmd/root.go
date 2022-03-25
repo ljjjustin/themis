@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 	SuggestFor: []string{"themis"},
 }
 
-var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "cmd")
+var plog = capnslog.NewPackageLogger("themis", "cmd")
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {

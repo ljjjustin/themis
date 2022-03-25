@@ -3,8 +3,8 @@ package monitor
 import (
 	"time"
 
-	"github.com/ljjjustin/themis/config"
-	"github.com/ljjjustin/themis/database"
+	"themis/config"
+	"themis/database"
 )
 
 const (

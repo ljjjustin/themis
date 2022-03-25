@@ -1,6 +1,6 @@
 package main
 
-import "github.com/ljjjustin/themis/cmd/cli"
+import "themis/cmd/cli"
 
 func main() {
 	cli.Execute()

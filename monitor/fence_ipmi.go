@@ -3,7 +3,7 @@ package monitor
 import (
 	ipmi "github.com/vmware/goipmi"
 
-	"github.com/ljjjustin/themis/database"
+	"themis/database"
 )
 
 type IPMIFencer struct {

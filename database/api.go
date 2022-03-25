@@ -9,10 +9,10 @@ import (
 	"github.com/go-xorm/xorm"
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/ljjjustin/themis/config"
+	"themis/config"
 )
 
-var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "database")
+var plog = capnslog.NewPackageLogger("themis", "database")
 
 var (
 	engine    *xorm.Engine

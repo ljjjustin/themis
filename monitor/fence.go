@@ -1,6 +1,6 @@
 package monitor
 
-import "github.com/ljjjustin/themis/database"
+import "themis/database"
 
 type FencerInterface interface {
 	Fence() error

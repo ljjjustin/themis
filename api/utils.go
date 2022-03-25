@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ljjjustin/themis/database"
+	"themis/database"
 )
 
 func GetId(c *gin.Context, key string) int {

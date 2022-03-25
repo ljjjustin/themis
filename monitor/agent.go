@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ljjjustin/themis/config"
+	"themis/config"
 )
 
 type ThemisAgent struct {

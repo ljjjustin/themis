@@ -7,7 +7,7 @@ import (
 	"github.com/coreos/pkg/capnslog"
 )
 
-var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "config")
+var plog = capnslog.NewPackageLogger("themis", "config")
 
 type ThemisConfig struct {
 	Debug bool

@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/ljjjustin/themis/client"
+	"themis/client"
 	"github.com/spf13/cobra"
 	texttable "github.com/syohex/go-texttable"
 )

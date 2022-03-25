@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/coreos/pkg/capnslog"
-	"github.com/ljjjustin/themis/api"
-	"github.com/ljjjustin/themis/config"
-	"github.com/ljjjustin/themis/database"
+	"themis/api"
+	"themis/config"
+	"themis/database"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	defaultEventCollectorMonitorInterval = 10 * time.Second
 )
 
-var plog = capnslog.NewPackageLogger("github.com/ljjjustin/themis", "monitor")
+var plog = capnslog.NewPackageLogger("themis", "monitor")
 
 type ThemisMonitor struct {
 	config          *config.ThemisConfig

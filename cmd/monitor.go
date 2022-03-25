@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"github.com/ljjjustin/themis/config"
-	"github.com/ljjjustin/themis/monitor"
+	"themis/config"
+	"themis/monitor"
+
 	"github.com/spf13/cobra"
 )
 

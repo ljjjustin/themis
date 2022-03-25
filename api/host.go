@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ljjjustin/themis/database"
+	"themis/database"
 )
 
 const (

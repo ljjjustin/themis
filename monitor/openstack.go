@@ -7,7 +7,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/services"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 
-	"github.com/ljjjustin/themis/config"
+	"themis/config"
 )
 
 type NovaClient struct {

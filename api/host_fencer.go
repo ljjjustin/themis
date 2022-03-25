@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/ljjjustin/themis/database"
+	"themis/database"
 )
 
 func init() {

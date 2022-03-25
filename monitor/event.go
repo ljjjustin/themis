@@ -1,7 +1,7 @@
 package monitor
 
 import (
-	"github.com/ljjjustin/themis/config"
+	"themis/config"
 )
 
 type Event struct {
